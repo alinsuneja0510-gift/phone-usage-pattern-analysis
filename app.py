@@ -67,7 +67,7 @@ with eda_tab:
     with st.expander(":bar_chart: Usage Patterns by Age Group"):
         age_bins = pd.cut(df['Age'], bins=[0, 18, 30, 45, 60, 100], labels=["<18", "18-30", "31-45", "46-60", "60+"])
         df['Age Group'] = age_bins
-        avg_usage = df.groupby('Age Group')[['Screen Time (hrs/day)', 'Data Usage (GB/month)', 'Social Media Time (hrs/day)', 'Gaming Time (hrs/day)']].mean()
+        avg_usage = df.groupby('Age Group', observed=False)[['Screen Time (hrs/day)', 'Data Usage (GB/month)', 'Social Media Time (hrs/day)', 'Gaming Time (hrs/day)']].mean()
         st.bar_chart(avg_usage)
 
 # Clustering Tab
