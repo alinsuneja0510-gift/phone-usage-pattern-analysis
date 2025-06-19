@@ -3,7 +3,10 @@ models/*.pkl
 models/*.joblib
 
 # Ignore dataset (if you host it elsewhere)
-data/*.csv
+data/*
+
+# ...but don't ignore this file:
+!data/phone_usage_india.csv
 
 # Ignore Python cache files
 __pycache__/
