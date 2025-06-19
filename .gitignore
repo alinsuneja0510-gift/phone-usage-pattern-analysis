@@ -1,6 +1,8 @@
 # Ignore model files if they are large
 models/*.pkl
 models/*.joblib
+# Ignore other pkl files but track this one
+!models/primary_use_classifier.pkl
 
 # Ignore dataset (if you host it elsewhere)
 data/*
