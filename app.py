@@ -31,7 +31,7 @@ st.title(":bar_chart: Multi-Page Phone Usage Analyzer")
 # Load and preprocess dataset
 @st.cache_data
 def load_data():
-    df = pd.read_csv(r"C:\Users\Admin\Project 4\data\phone_usage_india.csv")
+    df = pd.read_csv("data/phone_usage_india.csv")
     le = LabelEncoder()
     df['Gender'] = le.fit_transform(df['Gender'])
     df['Location'] = le.fit_transform(df['Location'])
