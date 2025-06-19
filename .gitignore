@@ -1,0 +1,27 @@
+# Ignore model files if they are large
+models/*.pkl
+models/*.joblib
+
+# Ignore dataset (if you host it elsewhere)
+data/*.csv
+
+# Ignore Python cache files
+__pycache__/
+*.py[cod]
+*.so
+
+# Ignore virtual environments
+env/
+venv/
+.venv/
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore Streamlit config and logs
+.streamlit/
+logs/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
