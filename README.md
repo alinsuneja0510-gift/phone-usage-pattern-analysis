@@ -32,3 +32,8 @@ The dataset includes:
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
+
+## 🔗 Live App
+
+👉 [Click here to view the live Streamlit app](https://your-username.streamlit.app)
+
