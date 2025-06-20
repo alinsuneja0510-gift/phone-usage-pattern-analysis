@@ -1,178 +1,224 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import seaborn as sns
-import streamlit as st
+import matplotlib.pyplot as plt
 import joblib
 import os
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-from sklearn.cluster import SpectralClustering, KMeans, DBSCAN, AgglomerativeClustering
-from sklearn.mixture import GaussianMixture
-from sklearn.decomposition import PCA
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
-from sklearn.metrics import silhouette_score
+import plotly.express as px
+import plotly.graph_objects as go
 
-# Setup
-st.set_page_config(page_title="📊 Phone Usage Pattern Analysis", layout="wide")
-st.markdown("""
-    <style>
-        .main {background-color: #f0f2f6;}
-        h1, h2, h3 {color: #0e1117;}
-        .stButton>button {background-color: #008080; color: white; border-radius: 5px;}
-    </style>
-""", unsafe_allow_html=True)
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import classification_report
 
-st.title(":bar_chart: Multi-Page Phone Usage Analyzer")
+st.set_page_config(page_title="📱 Mobile Usage Dashboard", layout="wide", initial_sidebar_state="expanded")
 
-# Load and preprocess dataset
+# Tabs
+tabs = st.tabs([
+    "📊 EDA",
+    "📈 Classification",
+    "🔍 Clustering",
+    "🧼 Data Cleaner",
+    "🧪 Model Comparison",
+    "🚀 Deployment Guide"
+])
+
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/phone_usage_india.csv")
-    le = LabelEncoder()
-    df['Gender'] = le.fit_transform(df['Gender'])
-    df['Location'] = le.fit_transform(df['Location'])
-    df['Phone Brand'] = le.fit_transform(df['Phone Brand'])
-    df['OS'] = le.fit_transform(df['OS'])
+    df = pd.read_csv("processed_data/eda_data.csv")
     return df
 
-df_raw = load_data()
+# --- EDA ---
+with tabs[0]:
+    st.title("📊 Exploratory Data Analysis")
+    eda_df = load_data()
 
-# Tab Layout
-eda_tab, cluster_tab, classify_tab = st.tabs(["\U0001f4c8 EDA", "\U0001f9e0 Clustering", "\U0001f52e Classification"])
-
-# Feature Scaling
-df = df_raw.copy()
-scaler = StandardScaler()
-df_scaled = df.drop(columns=['User ID', 'Primary Use'], errors='ignore')
-X_scaled = scaler.fit_transform(df_scaled.select_dtypes(include='number'))
-
-# EDA Tab
-with eda_tab:
-    st.header(":bar_chart: Exploratory Data Analysis")
-    selected_column = st.sidebar.selectbox(":pushpin: Select a Numeric Column", df.select_dtypes(include='number').columns)
-    with st.expander(":bar_chart: Feature Distributions", expanded=True):
-        st.bar_chart(df[[selected_column]])
-
-    with st.expander(":mag: Feature Correlation", expanded=True):
-        st.subheader(":abacus: Feature Correlation Matrix")
-        corr = df.select_dtypes(include='number').corr()
-        fig, ax = plt.subplots(figsize=(12, 8))
-        sns.heatmap(corr, annot=True, cmap="viridis", ax=ax)
-        st.pyplot(fig)
-
-    with st.expander(":bar_chart: Usage Patterns by Age Group"):
-        age_bins = pd.cut(df['Age'], bins=[0, 18, 30, 45, 60, 100], labels=["<18", "18-30", "31-45", "46-60", "60+"])
-        df['Age Group'] = age_bins
-        avg_usage = df.groupby('Age Group', observed=False)[['Screen Time (hrs/day)', 'Data Usage (GB/month)', 'Social Media Time (hrs/day)', 'Gaming Time (hrs/day)']].mean()
-        st.bar_chart(avg_usage)
-
-# Clustering Tab
-with cluster_tab:
-    st.header(":brain: Clustering Models Comparison")
-    models = {
-        "KMeans": KMeans(n_clusters=5, random_state=42),
-        "Hierarchical": AgglomerativeClustering(n_clusters=5),
-        "DBSCAN": DBSCAN(eps=2, min_samples=5),
-        "Gaussian Mixture": GaussianMixture(n_components=5, random_state=42),
-        "Spectral": SpectralClustering(n_clusters=5, affinity='nearest_neighbors', random_state=42)
-    }
-
-    for name, model in models.items():
-        try:
-            if name == "Gaussian Mixture":
-                labels = model.fit_predict(X_scaled)
-            else:
-                labels = model.fit(X_scaled).labels_
-            score = silhouette_score(X_scaled, labels)
-            st.markdown(f"### ✨ {name} Clustering")
-            st.success(f"Silhouette Score: {score:.3f}")
-
-            pca = PCA(n_components=2)
-            X_pca = pca.fit_transform(X_scaled)
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.scatterplot(x=X_pca[:, 0], y=X_pca[:, 1], hue=labels, palette='tab10', s=50, ax=ax)
-            ax.set_title(f"{name} Clustering - PCA Projection")
-            st.pyplot(fig)
-        except Exception as e:
-            st.warning(f"{name} failed: {e}")
-
-# Classification Tab
-with classify_tab:
-    st.header(":crystal_ball: Predict Primary Use")
-    model_path = "models/primary_use_classifier.pkl"
-
-    if 'Primary Use' not in df.columns:
-        st.error("'Primary Use' column not found in data.")
-        st.stop()
-
-    df_clean = df.dropna(subset=['Primary Use'])
-    X = df_clean.drop(columns=['User ID', 'Primary Use'], errors='ignore')
-    y = df_clean['Primary Use']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    st.subheader(":robot_face: Choose Model")
-    model_name = st.selectbox(":package: Select Model", ["Random Forest", "Logistic Regression", "Decision Tree", "Gradient Boosting"])
-
-    if os.path.exists(model_path):
-        model = joblib.load(model_path)
+    st.subheader("📌 Distribution of App Usage Time by Primary Use")
+    usage_time_cols = ["Social Media Time (hrs/day)", "Streaming Time (hrs/day)", "Gaming Time (hrs/day)"]
+    selected_usage = st.selectbox("Select a feature:", usage_time_cols)
+    if selected_usage in eda_df.columns:
+        fig1 = px.histogram(eda_df, x=selected_usage, color="Primary Use", barmode="overlay", nbins=40)
+        st.plotly_chart(fig1, use_container_width=True)
     else:
-        if model_name == "Random Forest":
-            model = RandomForestClassifier()
-        elif model_name == "Logistic Regression":
-            model = LogisticRegression(max_iter=1000)
-        elif model_name == "Decision Tree":
-            model = DecisionTreeClassifier()
-        elif model_name == "Gradient Boosting":
-            model = GradientBoostingClassifier()
-        model.fit(X_train, y_train)
-        joblib.dump(model, model_path)
+        st.error(f"'{selected_usage}' not found in uploaded dataset")
 
-    y_pred = model.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    st.success(f"Accuracy: {acc:.2f}")
+    st.subheader("🔋 Screen-on Time vs Battery Consumption")
+    if "Screen Time (hrs/day)" in eda_df.columns and "Monthly Recharge Cost (INR)" in eda_df.columns:
+        fig2 = px.scatter(
+            eda_df,
+            x="Screen Time (hrs/day)",
+            y="Monthly Recharge Cost (INR)",
+            color="Primary Use",
+            size="Data Usage (GB/month)",
+            title="Screen Time vs Battery Cost by Primary Use"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
 
-    fig3, ax3 = plt.subplots()
-    ConfusionMatrixDisplay(confusion_matrix(y_test, y_pred), display_labels=model.classes_).plot(ax=ax3)
-    st.pyplot(fig3)
-
-    st.subheader(":calling: Enter User Details")
-    age = st.slider(":birthday: Age", 10, 80, 25)
-    gender = st.selectbox(":bust_in_silhouette: Gender", ["Male", "Female", "Other"])
-    location = st.slider(":round_pushpin: Location ID", 0, 100, 10)
-    phone_brand = st.slider(":iphone: Phone Brand ID", 0, 50, 5)
-    os_type = st.selectbox(":computer: Operating System", ["Android", "iOS"])
-    screen_time = st.slider(":iphone: Screen Time (hrs/day)", 0.0, 12.0, 4.5)
-    data_usage = st.slider(":signal_strength: Data Usage (GB/month)", 0.0, 50.0, 12.0)
-    calls_duration = st.slider(":telephone_receiver: Calls Duration (mins/day)", 0, 300, 60)
-    apps_installed = st.slider(":calling: Number of Apps Installed", 0, 200, 40)
-    social_media = st.slider(":speech_balloon: Social Media Time (hrs/day)", 0.0, 10.0, 2.0)
-    ecommerce_spend = st.slider(":shopping_bags: E-commerce Spend (INR/month)", 0, 10000, 1500)
-    streaming_time = st.slider(":film_projector: Streaming Time (hrs/day)", 0.0, 10.0, 3.0)
-    gaming_time = st.slider(":video_game: Gaming Time (hrs/day)", 0.0, 10.0, 1.0)
-    recharge = st.slider(":money_with_wings: Monthly Recharge Cost (INR)", 0, 2000, 300)
-
-    gender_val = 0 if gender == "Male" else 1 if gender == "Female" else 2
-    os_val = 0 if os_type == "Android" else 1
-
-    user_input = np.array([[age, gender_val, location, phone_brand, os_val,
-                            screen_time, data_usage, calls_duration, apps_installed,
-                            social_media, ecommerce_spend, streaming_time,
-                            gaming_time, recharge]])
-
-    user_input_scaled = scaler.transform(user_input)
-    prediction = model.predict(user_input_scaled)
-    st.success(f":dart: Predicted Primary Use: **{prediction[0]}**")
-
-    download_df = pd.DataFrame(user_input, columns=X.columns)
-    download_df['Predicted Primary Use'] = prediction
-    csv = download_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label=":arrow_down: Download Prediction Result",
-        data=csv,
-        file_name="user_primary_use_prediction.csv",
-        mime='text/csv'
+    st.subheader("📶 Data Usage vs App Installations by Age")
+    fig3 = px.scatter(
+        eda_df,
+        x="Age",
+        y="Data Usage (GB/month)",
+        size="Number of Apps Installed",
+        color="Primary Use",
+        hover_data=['Gender']
     )
+    st.plotly_chart(fig3, use_container_width=True)
+
+    st.subheader("🌡️ Feature Correlation Heatmap")
+    numeric_data = eda_df.select_dtypes(include=np.number)
+    fig4 = px.imshow(numeric_data.corr(), text_auto=True, color_continuous_scale='Blues')
+    st.plotly_chart(fig4, use_container_width=True)
+
+    st.subheader("🧪 Screen Time Boxplot by User Class")
+    fig5 = px.box(eda_df, x="Primary Use", y="Screen Time (hrs/day)", color="Primary Use")
+    st.plotly_chart(fig5, use_container_width=True)
+
+# --- Classification Tab ---
+with tabs[1]:
+    st.title("📈 Primary Use Prediction")
+    st.info("""
+    This section lets you enter key mobile usage statistics and predicts the user's **Primary Mobile Usage**.
+    👉 Fill in the inputs below and hit **Predict** to see the AI's guess!
+    """)
+
+    gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+    location = st.selectbox("Location", ["Mumbai", "Delhi", "Ahmedabad", "Pune"])
+    phone_brand = st.selectbox("Phone Brand", ["Vivo", "Realme", "Nokia", "Samsung", "Xiaomi"])
+    os_type = st.selectbox("Operating System", ["Android", "iOS"])
+
+    age = st.slider("Age", 10, 80, 30)
+    screen_time = st.slider("Screen Time (hrs/day)", 0.0, 16.0, 5.0)
+    data_usage = st.slider("Data Usage (GB/month)", 0.0, 50.0, 10.0)
+    calls = st.slider("Calls Duration (mins/day)", 0.0, 300.0, 60.0)
+    apps = st.slider("Number of Apps Installed", 0, 300, 100)
+    social_time = st.slider("Social Media Time (hrs/day)", 0.0, 10.0, 3.0)
+    ecommerce = st.slider("E-commerce Spend (INR/month)", 0, 10000, 2000)
+    streaming = st.slider("Streaming Time (hrs/day)", 0.0, 10.0, 2.0)
+    gaming = st.slider("Gaming Time (hrs/day)", 0.0, 10.0, 2.0)
+    recharge = st.slider("Monthly Recharge Cost (INR)", 0, 3000, 1000)
+
+    if st.button("Predict"):
+        gender_map = {"Male": 1, "Female": 0, "Other": 2}
+        os_map = {"Android": 0, "iOS": 1}
+        loc_map = {"Mumbai": 2, "Delhi": 0, "Ahmedabad": 1, "Pune": 3}
+        brand_map = {"Vivo": 4, "Realme": 3, "Nokia": 2, "Samsung": 1, "Xiaomi": 0}
+
+        features = [[
+            age,
+            gender_map[gender],
+            loc_map[location],
+            brand_map[phone_brand],
+            os_map[os_type],
+            screen_time,
+            data_usage,
+            calls,
+            apps,
+            social_time,
+            ecommerce,
+            streaming,
+            gaming,
+            recharge
+        ]]
+
+        scaler = joblib.load("models/classification/scaler.pkl")
+        model = joblib.load("models/classification/random_forest.pkl")
+        target_encoder = joblib.load("models/classification/target_encoder.pkl")
+
+        features_scaled = scaler.transform(features)
+        probs = model.predict_proba(features_scaled)[0]
+        pred = model.predict(features_scaled)
+        label = target_encoder.inverse_transform(pred)[0]
+
+        emoji_map = {
+            "Gaming": "🎮",
+            "Social Media": "💬",
+            "Entertainment": "🎬",
+            "Education": "📚",
+            "Work": "💼"
+        }
+
+        st.success(f"Predicted Primary Use: **{emoji_map.get(label, '📱')} {label}**")
+
+        st.markdown("### 🔢 Prediction Probabilities")
+        proba_df = pd.DataFrame({
+            "Category": target_encoder.inverse_transform(np.arange(len(probs))),
+            "Probability": np.round(probs * 100, 2)
+        }).sort_values("Probability", ascending=False)
+        st.table(proba_df)
+
+# --- Clustering Tab ---
+with tabs[2]:
+    st.title("🔍 Cluster User Behavior")
+    st.info("Upload data and apply clustering algorithms.")
+    uploaded_cluster = st.file_uploader("Upload dataset for clustering", type="csv")
+    if uploaded_cluster:
+        df_cluster = pd.read_csv(uploaded_cluster)
+        st.dataframe(df_cluster.head())
+
+        num_clusters = st.slider("Select number of clusters", 2, 10, 3)
+
+        st.subheader("Select features for clustering")
+        features = st.multiselect("Choose numeric features", df_cluster.select_dtypes(include=np.number).columns.tolist())
+
+        if st.button("Apply Clustering") and features:
+            kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+            df_cluster['Cluster'] = kmeans.fit_predict(df_cluster[features])
+            st.success("Clustering applied!")
+            fig = px.scatter_matrix(df_cluster, dimensions=features, color='Cluster')
+            st.plotly_chart(fig, use_container_width=True)
+            st.dataframe(df_cluster.head())
+
+# --- Data Cleaning Tab ---
+with tabs[3]:
+    st.title("🧼 Data Cleaning Assistant")
+    st.info("This tool helps you inspect and fix missing or inconsistent data.")
+    uploaded_clean = st.file_uploader("Upload raw dataset for cleaning", type="csv")
+    if uploaded_clean:
+        raw_df = pd.read_csv(uploaded_clean)
+        st.dataframe(raw_df.head())
+
+        st.subheader("🧹 Missing Values Summary")
+        missing = raw_df.isnull().sum()
+        st.write(missing[missing > 0])
+
+        if st.button("Drop Rows with Missing Values"):
+            cleaned_df = raw_df.dropna()
+            st.success("Rows with missing values dropped.")
+            st.dataframe(cleaned_df.head())
+
+# --- Model Comparison Tab ---
+with tabs[4]:
+    st.title("🧪 Model Comparison")
+    st.info("View and compare the performance of different classification models.")
+
+    models = ["logistic_regression", "decision_tree", "random_forest", "svm", "xgboost"]
+    report_df = []
+    y_test = joblib.load("models/classification/y_test.pkl")
+
+    for model_name in models:
+        model = joblib.load(f"models/classification/{model_name}.pkl")
+        y_pred = model.predict(joblib.load("models/classification/X_test.pkl"))
+        report = classification_report(y_test, y_pred, output_dict=True)
+        acc = report['accuracy']
+        report_df.append({"Model": model_name, "Accuracy": acc})
+
+    st.table(pd.DataFrame(report_df).sort_values("Accuracy", ascending=False))
+
+# --- Deployment Tab ---
+with tabs[5]:
+    st.title("🚀 Deployment Guide")
+    st.markdown("""
+        You can deploy this app using:
+
+        **✅ Streamlit Cloud:**
+        - Push your code to GitHub
+        - Log into [Streamlit Cloud](https://streamlit.io/cloud)
+        - Click **New App** and select the repo
+
+        **🖥️ Local Deployment:**
+        ```bash
+        streamlit run app.py
+        ```
+    """)
