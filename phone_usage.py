@@ -23,7 +23,7 @@ import warnings
 warnings.filterwarnings("ignore", message="Could not find the number of physical cores")
 
 # 1. Load Dataset
-df = pd.read_csv(r"C:\Users\Admin\Project 4\data\phone_usage_india.csv")
+df = pd.read_csv("data/phone_usage_india.csv")
 
 # Drop User ID column if it exists
 if 'User ID' in df.columns:
